@@ -1,0 +1,78 @@
+---
+title: "College Choice Analysis"
+author: "Lucas Curtis"
+format: typst
+editor: visual
+---
+
+## Question:
+
+Is attending a more expensive college associated with higher earnings after college, and is this relationship different for public and private universities?
+
+## The Data
+
+This is the college scorecard data, publicly available on data.gov. I am using the latest update, noted to be November 2 2026 (accessed November 6 2026).
+
+## The why
+
+College is becoming increasingly expensive at an alarming rate. For many, it has simply become too much and is written off as a bad investment. For others, even if they see it as a good investment they may find that the debt is crippling. I want to explore this dilemma by answering which undergraduate degrees have the best ROI and provide insight to those who see university education as a risky investment.
+
+## Variables
+
+Average annual net price: NPT4_PUB (Public schools) \| Quantitative
+
+NPT4_PRIV (Private schools) \| Quantitative
+
+Median earnings 10 years after entry: MD_EARN_WNE_P10 \| Quantitative
+
+Institution type: CONTROL \| Categorical \| Private == 2 , Public == 1
+
+Institution name: INSTNM \| Identifier \|
+
+Predominant Degree: PREDDEG (bachelors == 3) \| Identifier
+
+## Packages
+
+```{r}
+library(tidyverse) #using readr, dyplr, ggplot2 from tidyverse
+```
+
+## Reading the Data
+
+```{r}
+College_Data = read_csv('Most-Recent-Cohorts-Institution.csv', col_names=TRUE)
+College_Data = College_Data %>%
+  rename(Institution_Name = 'INSTNM',
+         Institution_Type = 'CONTROL',
+         Predominant_Degree = 'PREDDEG',
+         Avg_Ann_Net_Price_Public = 'NPT4_PUB',
+         Avg_Ann_Net_Price_Private = 'NPT4_PRIV',
+         Median_Earn_10_Years = 'MD_EARN_WNE_P10') %>%
+  filter(Predominant_Degree == 3,
+         Institution_Type == 1 | Institution_Type == 2,
+         !(is.na(Avg_Ann_Net_Price_Public) & is.na(Avg_Ann_Net_Price_Private)),
+         Median_Earn_10_Years != 'PS' & Median_Earn_10_Years != 'NULL') %>% 
+# Filters to only bachelors degrees, public and private schools, removes rows with na values in both public and private price, and removes rows with private earnings data and Null data
+  mutate(Avg_Ann_Net_Price_General = if_else(is.na(Avg_Ann_Net_Price_Public),  Avg_Ann_Net_Price_Private, Avg_Ann_Net_Price_Public),
+         Median_Earn_10_Years = as.numeric(Median_Earn_10_Years),
+         Institution_Type = if_else(Institution_Type == 1, 'Public', 'Private')) %>%
+# creates a general price column that includes no NA values for all institutions. Then I convert median earnings column to numeric as it was in character. Then I make institution type column more descriptive.
+  select(Institution_Name,
+         Institution_Type,
+         Avg_Ann_Net_Price_Public,
+         Avg_Ann_Net_Price_Private,
+         Avg_Ann_Net_Price_General,
+         Median_Earn_10_Years) 
+# only selecting the variables that I will use for this project
+```
+
+## Figure 1
+
+Scatter plot with price on the x axis and earnings on the y axis. Private and public universities are distinguished by color. A linear model is shown for private and public universities respectively, as well.
+
+```{r}
+ggplot(College_Data, aes(x=Avg_Ann_Net_Price_General, y=Median_Earn_10_Years, color = Institution_Type)) +
+  geom_jitter(alpha = 1, shape = 24) +
+  theme_bw() +
+  labs(title = "Price vs Earnings by Public or Private Universities", x = "Average Annual Net Price", y = "Median Earnings after 10 Years", color = "Public or Private?")
+```

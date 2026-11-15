@@ -25,3 +25,11 @@ Yes, attending a more expensive college has evidence of association with higher 
 - R-squared = \~0.12, which means only about 12% of the variation earnings actually boils down to public vs private.
 
 - One found limitation is that some institutions specialize in degree programs that may typically have more lucrative careers, like those in STEM.
+
+## Repository
+
+- CollegeROI.md –\> markdown file containing analysis
+
+- CollegeROIquarto –\> qmd file containing analysis
+
+- Most-Recent-Cohorts_Institution.csv –\> Data

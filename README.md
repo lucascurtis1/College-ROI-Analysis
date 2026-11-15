@@ -2,30 +2,26 @@
 
 Is attending a more expensive college associated with higher earnings after college, and is this relationship different for public and private universities?
 
-## The Data
+## Conclusion
 
-This is the college scorecard data, publicly available on data.gov. I am using the latest update, noted to be November 2 2026 (accessed November 6 2026).
+Yes, attending a more expensive college has evidence of association with higher earnings, and this relationship differs for public and private institutions.
 
-## The why
+- Higher price is associated with higher earnings at private schools (p = 2 \* 10^-16^)
 
-College is becoming increasingly expensive at an alarming rate. For many, it has simply become too much and is written off as a bad investment. For others, even if they see it as a good investment they may find that the debt is crippling. I want to explore this dilemma by answering which undergraduate degrees have the best ROI and provide insight to those who see university education as a risky investment.
+- Higher price is associated with higher earnings at public schools (p = 2.56 \* 10\^-6).
 
-## Variables
+- It is estimated that at a private institution, for every \$1 spent, an additional \$1.01 is earned.
 
-Average annual net price: NPT4_PUB (Public schools) | Quantitative
+- At a public school, it is estimated that for every \$1 spent, an additional \$0.564 is earned.
 
-NPT4_PRIV (Private schools) | Quantitative
+- If one spent \$20,000 a year on a public school, it is estimated that 10 years later their yearly salary would be 79.6% of their total investment.
 
-Median earnings 10 years after entry: MD_EARN_WNE_P10 | Quantitative
+- If one spent \$20,000 a year on a private school, it is estimated that 10 years later their yearly salary would be 72.4% of their total investment.
 
-Institution type: CONTROL | Categorical | Private == 2 , Public == 1
+- At the median college price of \$19,090, public institutions are found to earn more money than private institutions (p = 1.97 \* 10\^-10)
 
-Institution name: INSTNM | Identifier |
+- The relationship of price vs earnings is different for public and private institutions (p = 0.0016).
 
-Predominant Degree: PREDDEG (bachelors == 3) | Identifier
+- R-squared = \~0.12, which means only about 12% of the variation earnings actually boils down to public vs private.
 
-## Repository
-
-Most-Recent-Cohorts-Institution.csv -> csv file containing the college scorecard data I used.
-
-InProgressCollegeChoice.qmd -> quarto file (not rendered) with analysis.
+- One found limitation is that some institutions specialize in degree programs that may typically have more lucrative careers, like those in STEM.

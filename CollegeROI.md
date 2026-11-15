@@ -1,0 +1,422 @@
+# College ROI Analysis
+Lucas Curtis
+
+## Question:
+
+Is attending a more expensive college associated with higher earnings
+after college, and is this relationship different for public and private
+universities?
+
+## The Data
+
+This is the college scorecard data, publicly available on data.gov. I am
+using the latest update, noted to be November 2 2026 (accessed November
+6 2026).
+
+## The why
+
+College is becoming increasingly expensive at an alarming rate. For
+many, it has simply become too much and is written off as a bad
+investment. For others, even if they see it as a good investment they
+may find that the debt is crippling. I want to explore this dilemma by
+answering which undergraduate institutions have the best ROI and provide
+insight to those who see university education as a risky investment.
+
+## Variables
+
+Average annual net price: NPT4_PUB (Public schools) \| Quantitative
+
+NPT4_PRIV (Private schools) \| Quantitative
+
+NOTE: these net prices are collected based on students who received
+federal aid, so this is not an entirely representative number.
+
+Median earnings 10 years after entry: MD_EARN_WNE_P10 \| Quantitative
+
+Institution type: CONTROL \| Categorical \| Private == 2 , Public == 1
+
+Institution name: INSTNM \| Identifier \|
+
+Predominant Degree: PREDDEG (bachelors == 3) \| Identifier
+
+## Packages
+
+``` r
+library(tidyverse) #using readr, dyplr, ggplot2 from tidyverse
+```
+
+## Reading the Data
+
+``` r
+College_Data = read_csv('Most-Recent-Cohorts-Institution.csv', col_names=TRUE)
+College_Data = College_Data %>%
+  rename(Institution_Name = 'INSTNM',
+         Institution_Type = 'CONTROL',
+         Predominant_Degree = 'PREDDEG',
+         Avg_Ann_Net_Price_Public = 'NPT4_PUB',
+         Avg_Ann_Net_Price_Private = 'NPT4_PRIV',
+         Median_Earn_10_Years = 'MD_EARN_WNE_P10') %>%
+  filter(Predominant_Degree == 3,
+         Institution_Type == 1 | Institution_Type == 2,
+         !(is.na(Avg_Ann_Net_Price_Public) & is.na(Avg_Ann_Net_Price_Private)),
+         Median_Earn_10_Years != 'PS' & Median_Earn_10_Years != 'NULL') %>% 
+# Filters to only bachelors degrees, public and private schools, removes rows with na values in both public and private price, and removes rows with private earnings data and Null data
+  mutate(Avg_Ann_Net_Price_General = if_else(is.na(Avg_Ann_Net_Price_Public),  Avg_Ann_Net_Price_Private, Avg_Ann_Net_Price_Public),
+         Median_Earn_10_Years = as.numeric(Median_Earn_10_Years),
+         Institution_Type = if_else(Institution_Type == 1, 'Public', 'Private')) %>%
+# creates a general price column that includes no NA values for all institutions. Then I convert median earnings column to numeric as it was in character. Then I make institution type column more descriptive.
+  select(Institution_Name,
+         Institution_Type,
+         Avg_Ann_Net_Price_Public,
+         Avg_Ann_Net_Price_Private,
+         Avg_Ann_Net_Price_General,
+         Median_Earn_10_Years) 
+# only selecting the variables that I will use for this project
+```
+
+``` r
+table(College_Data$Institution_Type)
+```
+
+
+    Private  Public 
+       1025     565 
+
+-We have 1025 Private Colleges and 565 Public Colleges in our Data
+
+## Figure 1 - Scatterplot, Linear Model, Limitations
+
+Scatter plot with average annual price on the x axis and median earnings
+after 10 years on the y axis. Colored by public or private. Includes a
+linear model for both institution types.
+
+``` r
+ggplot(College_Data, aes(x=Avg_Ann_Net_Price_General, y=Median_Earn_10_Years, color = Institution_Type, fill = Institution_Type)) +
+  geom_jitter(alpha = 0.2, shape = 24) +
+  geom_smooth(method = "lm") +
+  theme_bw() +
+  labs(title = "Price vs Earnings by Public or Private Universities", x = "Average Annual Net Price", y = "Median Earnings after 10 Years", color = "Public or Private?", fill = "Public or Private?") 
+```
+
+![](InProgressCollegeChoice_files/figure-commonmark/unnamed-chunk-4-1.png)
+
+At lower price, public schools appear to beat out private schools in
+earnings. However, all high earning outlier instututions are private.
+Notably, the 3 schools that have earnings above \$150,000 are MIT,
+Harvey Mudd, and Cal Tech. While these schools do have high educational
+reputation, one thing I notice is that all three are strictly
+STEM-focused in program offerings. Therefore, reputation and educational
+prowess may not be the lone reason for high earnings numbers. I wanted
+to go further in this idea so I looked at the bottom 3 institutions in
+earnings: Talmudical Seminary of Bobov, Yeshivath Viznitz, and
+Universidad Teologica del Caribe. The Talmudical Seminary of Bobov and
+Yeshivath Viznitz are Jewish institutions offering only degree programs
+in Rabbinical studies, Jewish history, and similar. These programs may
+not generally offer the same level of financial wellness as a tech
+degree.
+
+In conclusion, the degree plans offered (only STEM, religious studies)
+may impact earning numbers, a limitation in the data.
+
+The most expensive public school tops out at \$35957, well below that of
+many private schools. This is a limitation I can handle. As to only
+compare values within the same interval of price, I will cap the private
+institutions at \$35957 in average net price.
+
+## Figure 2 - Capped Price on Private Institutions
+
+``` r
+College_Data %>%
+  filter(Avg_Ann_Net_Price_General <= 35957) %>%
+#filter out colleges exceeding that price
+  ggplot(aes(x=Avg_Ann_Net_Price_General, y=Median_Earn_10_Years, color =              Institution_Type, fill = Institution_Type)) +
+    geom_jitter(alpha = 0.2, shape = 24) +
+    geom_smooth(method = "lm") +
+    theme_bw() +
+    labs(title = "Price vs Earnings by Public or Private Universities", x = "Average Annual Net Price", y = "Median Earnings after 10 Years", color = "Public or Private?", fill = "Public or Private?") 
+```
+
+![](InProgressCollegeChoice_files/figure-commonmark/unnamed-chunk-5-1.png)
+
+That is better, the lines look similar, however it appears the linear
+models ever-so-slightly got farther from each other at lower prices and
+closer at higher prices. At a price tag of \$30,000, there is almost no
+observed significant difference between institution types. I’ll use this
+filtered data for the next figure.
+
+## Summary/Hypothesis Test - Linear Regression with Interaction
+
+``` r
+College_Data_Updated = College_Data %>%
+  filter(Avg_Ann_Net_Price_General <= 35957)
+
+fit = lm(Median_Earn_10_Years ~ Avg_Ann_Net_Price_General * Institution_Type, data = College_Data_Updated)
+summary(fit)
+```
+
+
+    Call:
+    lm(formula = Median_Earn_10_Years ~ Avg_Ann_Net_Price_General * 
+        Institution_Type, data = College_Data_Updated)
+
+    Residuals:
+       Min     1Q Median     3Q    Max 
+    -47417  -9528  -1790   6760 120344 
+
+    Coefficients:
+                                                       Estimate Std. Error t value
+    (Intercept)                                       3.770e+04  1.746e+03  21.597
+    Avg_Ann_Net_Price_General                         1.010e+00  7.549e-02  13.385
+    Institution_TypePublic                            1.468e+04  2.538e+03   5.785
+    Avg_Ann_Net_Price_General:Institution_TypePublic -4.465e-01  1.413e-01  -3.160
+                                                     Pr(>|t|)    
+    (Intercept)                                       < 2e-16 ***
+    Avg_Ann_Net_Price_General                         < 2e-16 ***
+    Institution_TypePublic                           8.84e-09 ***
+    Avg_Ann_Net_Price_General:Institution_TypePublic  0.00161 ** 
+    ---
+    Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+    Residual standard error: 15400 on 1481 degrees of freedom
+    Multiple R-squared:  0.1199,    Adjusted R-squared:  0.1181 
+    F-statistic: 67.26 on 3 and 1481 DF,  p-value: < 2.2e-16
+
+This gives us the equations of our two lines. It is also important to
+note that the investment of college is typically over the course of 4
+years. In other words, Average annual price \* 4.
+
+“ROI” Estimate: I will calculate a number that shows the % of the full
+investment of college that is paid per-year, 10 years later.
+
+“ROI” Estimate: Earnings ÷ 4 \* Average Annual Net Price.
+
+It is important to note that with an R squared of about 0.12, we can
+only say that about 12% of the variation in earnings is actually
+attributed to the factors explored in this data, so while a relationship
+does exist, it must be taken with a grain of salt.
+
+Just so that I can say the separate linear model is significant for both
+public and private institutions, I will run another model with public as
+the baseline.
+
+``` r
+fit_public = lm(Median_Earn_10_Years ~ Avg_Ann_Net_Price_General *
+                  relevel(factor(Institution_Type), ref = "Public"), 
+                #relevel is a function that tells R not to automatically select Private as the baseline for the regression.
+                data = College_Data_Updated)
+summary(fit_public)
+```
+
+
+    Call:
+    lm(formula = Median_Earn_10_Years ~ Avg_Ann_Net_Price_General * 
+        relevel(factor(Institution_Type), ref = "Public"), data = College_Data_Updated)
+
+    Residuals:
+       Min     1Q Median     3Q    Max 
+    -47417  -9528  -1790   6760 120344 
+
+    Coefficients:
+                                                                                         Estimate
+    (Intercept)                                                                         5.238e+04
+    Avg_Ann_Net_Price_General                                                           5.640e-01
+    relevel(factor(Institution_Type), ref = "Public")Private                           -1.468e+04
+    Avg_Ann_Net_Price_General:relevel(factor(Institution_Type), ref = "Public")Private  4.465e-01
+                                                                                       Std. Error
+    (Intercept)                                                                         1.842e+03
+    Avg_Ann_Net_Price_General                                                           1.194e-01
+    relevel(factor(Institution_Type), ref = "Public")Private                            2.538e+03
+    Avg_Ann_Net_Price_General:relevel(factor(Institution_Type), ref = "Public")Private  1.413e-01
+                                                                                       t value
+    (Intercept)                                                                         28.439
+    Avg_Ann_Net_Price_General                                                            4.722
+    relevel(factor(Institution_Type), ref = "Public")Private                            -5.785
+    Avg_Ann_Net_Price_General:relevel(factor(Institution_Type), ref = "Public")Private   3.160
+                                                                                       Pr(>|t|)
+    (Intercept)                                                                         < 2e-16
+    Avg_Ann_Net_Price_General                                                          2.56e-06
+    relevel(factor(Institution_Type), ref = "Public")Private                           8.84e-09
+    Avg_Ann_Net_Price_General:relevel(factor(Institution_Type), ref = "Public")Private  0.00161
+                                                                                          
+    (Intercept)                                                                        ***
+    Avg_Ann_Net_Price_General                                                          ***
+    relevel(factor(Institution_Type), ref = "Public")Private                           ***
+    Avg_Ann_Net_Price_General:relevel(factor(Institution_Type), ref = "Public")Private ** 
+    ---
+    Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+    Residual standard error: 15400 on 1481 degrees of freedom
+    Multiple R-squared:  0.1199,    Adjusted R-squared:  0.1181 
+    F-statistic: 67.26 on 3 and 1481 DF,  p-value: < 2.2e-16
+
+I can conclude that public institutions have a positive slope in price
+vs earnings (p = 2.56e-06).
+
+### Public Institutions
+
+Starts at \$52,380, and after every \$1 spent per year, earnings go up
+by 56.4 cents (\$0.564) per year.
+
+``` r
+Price = 20000
+Annual_Earnings_Estimate_Public = 52380 + (0.564)*Price
+Annual_Earnings_Estimate_Public
+```
+
+    [1] 63660
+
+``` r
+ROI_Estimate_Public = (52380 + (0.564)*Price) / (4 * Price)
+ROI_Estimate_Public
+```
+
+    [1] 0.79575
+
+Put a price in the code and get your estimates. For example, at \$20,000
+spent per year, you are estimated to earn \$63,660 per year, 10 years
+after. That would mean you are making back 79.6% of your \$80,000 total
+investment into college, yearly.
+
+### Private Institutions
+
+Starts at \$37,700, and after every \$1 spent per year, earnings go up
+by \$1.01
+
+``` r
+Price = 20000
+Annual_Earnings_Estimate_Private = 37700 + (1.01)*Price
+Annual_Earnings_Estimate_Private
+```
+
+    [1] 57900
+
+``` r
+ROI_Estimate_Private= (37700 + (1.01)*Price) / (4*Price)
+ROI_Estimate_Private
+```
+
+    [1] 0.72375
+
+Put a price in the code and get your estimates. For example, at \$20,000
+spent per year, you are estimated to earn \$57,900 per year, 10 years
+after. That would mean you are making back 72.4% of your \$80,000 total
+investment into college, yearly.
+
+### Observation
+
+- The slope of the Private institution estimator is \$1.01, I find it
+  really cool that it is so close to just being \$1. I wonder if there
+  is a good reason for that or if this is coincidence. A hypothesis of
+  mine would be the possibility of for-profit private institutions
+  optimizing their price for higher earnings.
+
+- The price vs earnings relationship (p = 0.0016) is significantly
+  different for public and private institutions.
+
+## Hypothesis Test - Are Public and Private Earnings different at a typical price?
+
+``` r
+Median_Price = median(College_Data_Updated$Avg_Ann_Net_Price_General)
+Median_Price
+```
+
+    [1] 19090
+
+The median price across both types is \$19090. I will use this as a
+‘typical’ price to test whether earnings predictions differ between
+public and private institutions. Since the last regression tested a
+significant difference at \$0, I will subtract \$19090 from each
+observation of the prices and so we will be testing the difference at
+that median number.
+
+``` r
+College_Median = College_Data_Updated %>%
+  mutate(Price_Vs_Median = Avg_Ann_Net_Price_General - Median_Price)
+fit = lm(Median_Earn_10_Years ~ Price_Vs_Median * Institution_Type, data = College_Median)
+summary(fit)
+```
+
+
+    Call:
+    lm(formula = Median_Earn_10_Years ~ Price_Vs_Median * Institution_Type, 
+        data = College_Median)
+
+    Residuals:
+       Min     1Q Median     3Q    Max 
+    -47417  -9528  -1790   6760 120344 
+
+    Coefficients:
+                                             Estimate Std. Error t value Pr(>|t|)
+    (Intercept)                             5.699e+04  5.571e+02 102.299  < 2e-16
+    Price_Vs_Median                         1.010e+00  7.549e-02  13.385  < 2e-16
+    Institution_TypePublic                  6.156e+03  1.020e+03   6.038 1.97e-09
+    Price_Vs_Median:Institution_TypePublic -4.465e-01  1.413e-01  -3.160  0.00161
+                                              
+    (Intercept)                            ***
+    Price_Vs_Median                        ***
+    Institution_TypePublic                 ***
+    Price_Vs_Median:Institution_TypePublic ** 
+    ---
+    Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+
+    Residual standard error: 15400 on 1481 degrees of freedom
+    Multiple R-squared:  0.1199,    Adjusted R-squared:  0.1181 
+    F-statistic: 67.26 on 3 and 1481 DF,  p-value: < 2.2e-16
+
+``` r
+confint(fit)
+```
+
+                                                   2.5 %        97.5 %
+    (Intercept)                            55897.0274138 58082.5769550
+    Price_Vs_Median                            0.8624020     1.1585640
+    Institution_TypePublic                  4156.2530234  8156.3624388
+    Price_Vs_Median:Institution_TypePublic    -0.7236352    -0.1693022
+
+It is statistically significant that public institutions earn more money
+than private institutions at the median price (p= 1.97e-09)!
+
+With 95% confidence, I can suggest that the difference in earnings at
+this price is estimated between \$4156 and \$8156, in favor of public
+institutions.
+
+## Conclusion
+
+#### Q: Is attending a more expensive college associated with higher earnings after college, and is this relationship different for public and private universities?
+
+Yes, attending a more expensive college has evidence of association with
+higher earnings, and this relationship differs for public and private
+institutions.
+
+- Higher price is associated with higher earnings at private schools (p
+  = 2 \* 10<sup>-16</sup>)
+
+- Higher price is associated with higher earnings at public schools (p =
+  2.56 \* 10^-6).
+
+- It is estimated that at a private institution, for every \$1 spent, an
+  additional \$1.01 is earned.
+
+- At a public school, it is estimated that for every \$1 spent, an
+  additional \$0.564 is earned.
+
+- If one spent \$20,000 a year on a public school, it is estimated that
+  10 years later their yearly salary would be 79.6% of their total
+  investment.
+
+- If one spent \$20,000 a year on a private school, it is estimated that
+  10 years later their yearly salary would be 72.4% of their total
+  investment.
+
+- At the median college price of \$19,090, public institutions are found
+  to earn more money than private institutions (p = 1.97 \* 10^-10)
+
+- The relationship of price vs earnings is different for public and
+  private institutions (p = 0.0016).
+
+- R-squared = ~0.12, which means only about 12% of the variation
+  earnings actually boils down to public vs private.
+
+- One found limitation is that some institutions specialize in degree
+  programs that may typically have more lucrative careers, like those in
+  STEM.

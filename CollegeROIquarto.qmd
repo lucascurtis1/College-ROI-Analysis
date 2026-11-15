@@ -1,8 +1,10 @@
 ---
-title: "College Choice Analysis"
+title: "College ROI Analysis"
 author: "Lucas Curtis"
-format: typst
-editor: visual
+format: gfm
+execute:
+  warning: false
+  message: false
 ---
 
 ## Question:

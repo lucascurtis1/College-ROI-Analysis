@@ -33,3 +33,7 @@ Yes, attending a more expensive college has evidence of association with higher 
 - CollegeROIquarto –\> qmd file containing analysis
 
 - Most-Recent-Cohorts_Institution.csv –\> Data
+
+- Figure1_CollegeROI.png —\> figure 1
+
+- Figure2_CollegeROI.png –\> figure 2
